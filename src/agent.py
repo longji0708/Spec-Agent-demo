@@ -7,38 +7,8 @@ from typing import Annotated, Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
+from .tools import TOOLS, TOOL_EXECUTORS
 
-DEEPSEEK_BASE_URL = "https://api.deepseek.com"
-DEFAULT_MODEL = "deepseek-chat"
-
-
-def add(a: int, b: int) -> int:
-    """计算两个整数的和。"""
-    return a + b
-
-
-TOOL_EXECUTORS = {
-    "add": add,
-}
-
-
-TOOLS: list[dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "add",
-            "description": "计算两个整数的和。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "a": {"type": "integer", "description": "第一个整数"},
-                    "b": {"type": "integer", "description": "第二个整数"},
-                },
-                "required": ["a", "b"],
-            },
-        },
-    }
-]
 
 
 class AgentState(TypedDict):
@@ -88,9 +58,9 @@ def create_deepseek_agent(
     if not api_key:
         raise ValueError("缺少 DEEPSEEK_API_KEY，请在 .env 中配置或传入 api_key。")
 
-    model_name = model_name or os.getenv("DEEPSEEK_MODEL") or DEFAULT_MODEL
+    model_name = os.getenv("DEEPSEEK_MODEL")
 
-    client = OpenAI(api_key=api_key, base_url=DEEPSEEK_BASE_URL)
+    client = OpenAI(api_key=api_key, base_url=os.getenv("DEEPSEEK_BASE_URL"))
 
     def call_model(state: AgentState) -> dict[str, list[dict[str, Any]]]:
         response = client.chat.completions.create(
