@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
 
 from .agent import create_deepseek_agent
 
@@ -20,8 +21,8 @@ def main() -> None:
         if question.lower() in {"exit", "quit", "退出"}:
             break
 
-        result = agent.invoke({"messages": [{"role": "user", "content": question}]})
-        answer = result["messages"][-1]["content"]
+        result = agent.invoke({"messages": [HumanMessage(content=question)]})
+        answer = result["messages"][-1].content
         print("智能体：", answer)
 
 

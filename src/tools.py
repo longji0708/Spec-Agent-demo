@@ -1,5 +1,4 @@
-# tools.py
-from typing import Any
+from langchain_core.tools import tool
 
 
 def add(a: int, b: int) -> int:
@@ -7,25 +6,4 @@ def add(a: int, b: int) -> int:
     return a + b
 
 
-TOOL_EXECUTORS = {
-    "add": add,
-}
-
-
-TOOLS: list[dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "add",
-            "description": "计算两个整数的和。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "a": {"type": "integer", "description": "第一个整数"},
-                    "b": {"type": "integer", "description": "第二个整数"},
-                },
-                "required": ["a", "b"],
-            },
-        },
-    }
-]
+TOOLS = [tool(add)]

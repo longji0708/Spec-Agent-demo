@@ -1,50 +1,24 @@
 from __future__ import annotations
 
-import json
-import operator
 import os
-from typing import Annotated, Any, TypedDict
+from typing import Any
 
-from langgraph.graph import END, START, StateGraph
-from openai import OpenAI
-from .tools import TOOLS, TOOL_EXECUTORS
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
 
+from .tools import TOOLS
 
-
-class AgentState(TypedDict):
-    messages: Annotated[list[dict[str, Any]], operator.add]
-
-
-def _message_to_dict(message: Any) -> dict[str, Any]:
-    if hasattr(message, "model_dump"):
-        return message.model_dump(exclude_none=True)
-    return message
+_DEFAULT_MODEL = "deepseek-chat"
+_DEFAULT_BASE_URL = "https://api.deepseek.com"
 
 
-def _run_tool_calls(last_message: dict[str, Any]) -> list[dict[str, Any]]:
-    tool_messages: list[dict[str, Any]] = []
+def _enable_langsmith_tracing() -> None:
+    tracing = os.getenv("LANGSMITH_TRACING") or os.getenv("LANGCHAIN_TRACING_V2")
+    if not tracing or tracing.strip().lower() not in {"1", "true", "yes", "on"}:
+        return
 
-    for tool_call in last_message.get("tool_calls") or []:
-        function = tool_call.get("function") or {}
-        name = function.get("name")
-
-        try:
-            arguments = json.loads(function.get("arguments") or "{}")
-        except json.JSONDecodeError:
-            arguments = {}
-
-        executor = TOOL_EXECUTORS.get(name)
-        content = str(executor(**arguments)) if executor else f"未知工具: {name}"
-
-        tool_messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": tool_call.get("id"),
-                "content": content,
-            }
-        )
-
-    return tool_messages
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
 
 
 def create_deepseek_agent(
@@ -52,42 +26,27 @@ def create_deepseek_agent(
     model_name: str | None = None,
 ) -> Any:
     """创建并返回调用 DeepSeek 的 LangGraph 智能体。"""
-    if api_key is None:
-        api_key = os.getenv("DEEPSEEK_API_KEY")
+    _enable_langsmith_tracing()
 
-    if not api_key:
+    resolved_api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
+    if not resolved_api_key:
         raise ValueError("缺少 DEEPSEEK_API_KEY，请在 .env 中配置或传入 api_key。")
 
-    model_name = os.getenv("DEEPSEEK_MODEL")
+    model = ChatOpenAI(
+        api_key=resolved_api_key,
+        base_url=os.getenv("DEEPSEEK_BASE_URL") or _DEFAULT_BASE_URL,
+        model=model_name or os.getenv("DEEPSEEK_MODEL") or _DEFAULT_MODEL,
+        temperature=0,
+    ).bind_tools(TOOLS)
 
-    client = OpenAI(api_key=api_key, base_url=os.getenv("DEEPSEEK_BASE_URL"))
+    def call_model(state: MessagesState) -> dict[str, list[Any]]:
+        return {"messages": [model.invoke(state["messages"])]}
 
-    def call_model(state: AgentState) -> dict[str, list[dict[str, Any]]]:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=state["messages"],
-            tools=TOOLS,
-            temperature=0,
-        )
-        message = response.choices[0].message
-        return {"messages": [_message_to_dict(message)]}
-
-    def call_tools(state: AgentState) -> dict[str, list[dict[str, Any]]]:
-        return {"messages": _run_tool_calls(state["messages"][-1])}
-
-    def route_after_agent(state: AgentState) -> str:
-        if state["messages"][-1].get("tool_calls"):
-            return "tools"
-        return "end"
-
-    graph = StateGraph(AgentState)
+    graph = StateGraph(MessagesState)
     graph.add_node("agent", call_model)
-    graph.add_node("tools", call_tools)
+    graph.add_node("tools", ToolNode(TOOLS))
     graph.add_edge(START, "agent")
-    graph.add_conditional_edges(
-        "agent",
-        route_after_agent,
-        {"tools": "tools", "end": END},
-    )
+    graph.add_conditional_edges("agent", tools_condition)
     graph.add_edge("tools", "agent")
+
     return graph.compile()
