@@ -3,3 +3,6 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# 旧的持久化记忆文件；当前版本只使用进程内短期记忆
+agent_memory.db*

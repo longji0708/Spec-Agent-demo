@@ -13,13 +13,20 @@
 ├── src/
 │   ├── __init__.py
 │   ├── __main__.py       # 命令行入口
-│   ├── agent.py          # LangGraph 图、节点和路由定义
-│   ├── tools.py          # 工具定义
+│   ├── agent.py          # 智能体工厂：读取配置并创建模型
+│   ├── graph.py          # LangGraph 图、节点和路由定义
+│   ├── memory.py         # 摘要式短期记忆
+│   ├── prompts.py        # 系统提示词
+│   ├── config.py         # 默认配置
+│   ├── tools/            # 工具定义与注册
+│   │   ├── __init__.py
+│   │   └── basic.py
 │   └── cli.py            # 交互式命令行
 ├── docs/
 │   └── architecture.md   # 架构说明
 └── tests/
-    └── test_agent.py     # 单元测试
+    ├── test_agent.py     # 单元测试
+    └── test_memory.py    # 短期记忆单元测试
 ```
 
 ## 快速开始
@@ -37,6 +44,13 @@ python -m src
 ```
 
 输入 `exit`、`quit` 或 `退出` 可以结束程序。
+
+## 记忆机制
+
+会话只使用短期记忆。LangGraph 使用 `MemorySaver` 作为 checkpointer，
+不会写入 `agent_memory.db`。最近的消息会完整保留在提示词中，超出 token
+窗口的旧消息会被压缩成摘要；程序或命令行窗口退出后，这些消息和摘要都会
+随进程释放，不会保留到下一次启动。
 
 ## 运行测试
 

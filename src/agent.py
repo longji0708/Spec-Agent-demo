@@ -1,16 +1,21 @@
+"""DeepSeek 智能体工厂。
+
+这里只负责读取配置、创建模型，并把依赖注入给 LangGraph 图构建器。
+"""
+
 from __future__ import annotations
 
 import os
 from typing import Any
 
 from langchain_openai import ChatOpenAI
-from langgraph.graph import END, START, MessagesState, StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
 
+from .config import DEFAULT_BASE_URL, DEFAULT_MODEL
+from .graph import build_agent_graph
+from .memory import AgentState
 from .tools import TOOLS
 
-_DEFAULT_MODEL = "deepseek-chat"
-_DEFAULT_BASE_URL = "https://api.deepseek.com"
+__all__ = ["AgentState", "create_deepseek_agent"]
 
 
 def _enable_langsmith_tracing() -> None:
@@ -32,21 +37,14 @@ def create_deepseek_agent(
     if not resolved_api_key:
         raise ValueError("缺少 DEEPSEEK_API_KEY，请在 .env 中配置或传入 api_key。")
 
-    model = ChatOpenAI(
+    base_llm = ChatOpenAI(
         api_key=resolved_api_key,
-        base_url=os.getenv("DEEPSEEK_BASE_URL") or _DEFAULT_BASE_URL,
-        model=model_name or os.getenv("DEEPSEEK_MODEL") or _DEFAULT_MODEL,
+        base_url=os.getenv("DEEPSEEK_BASE_URL") or DEFAULT_BASE_URL,
+        model=model_name or os.getenv("DEEPSEEK_MODEL") or DEFAULT_MODEL,
         temperature=0,
-    ).bind_tools(TOOLS)
+    )
 
-    def call_model(state: MessagesState) -> dict[str, list[Any]]:
-        return {"messages": [model.invoke(state["messages"])]}
+    model = base_llm.bind_tools(TOOLS)
+    summary_model = base_llm
 
-    graph = StateGraph(MessagesState)
-    graph.add_node("agent", call_model)
-    graph.add_node("tools", ToolNode(TOOLS))
-    graph.add_edge(START, "agent")
-    graph.add_conditional_edges("agent", tools_condition)
-    graph.add_edge("tools", "agent")
-
-    return graph.compile()
+    return build_agent_graph(model=model, summary_model=summary_model)

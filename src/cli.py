@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 
 from .agent import create_deepseek_agent
+from .config import CLI_THREAD_ID
 
 
 def main() -> None:
@@ -21,7 +22,11 @@ def main() -> None:
         if question.lower() in {"exit", "quit", "退出"}:
             break
 
-        result = agent.invoke({"messages": [HumanMessage(content=question)]})
+        thread_config = {"configurable": {"thread_id": CLI_THREAD_ID}}
+        result = agent.invoke(
+            {"messages": [HumanMessage(content=question)]},
+            config=thread_config,
+        )
         answer = result["messages"][-1].content
         print("智能体：", answer)
 

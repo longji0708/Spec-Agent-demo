@@ -3,3 +3,4 @@ langchain-openai>=0.2
 langchain-core>=0.3
 langsmith>=0.1
 python-dotenv>=1.0
+tiktoken>=0.8

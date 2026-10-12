@@ -1,3 +1,5 @@
+"""基础工具定义。"""
+
 from langchain_core.tools import tool
 
 
