@@ -1,13 +1,13 @@
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 
-from .agent import create_deepseek_agent
+from .agent import create_agent
 from .config import CLI_THREAD_ID
 
 
 def main() -> None:
     load_dotenv()
-    agent = create_deepseek_agent()
+    agent = create_agent()
 
     print("DeepSeek 智能体已启动，输入 exit 或 quit 退出。")
     while True:

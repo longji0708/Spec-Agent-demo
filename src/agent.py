@@ -17,7 +17,6 @@ from .tools import TOOLS
 
 __all__ = ["AgentState", "create_deepseek_agent"]
 
-
 def _enable_langsmith_tracing() -> None:
     tracing = os.getenv("LANGSMITH_TRACING") or os.getenv("LANGCHAIN_TRACING_V2")
     if not tracing or tracing.strip().lower() not in {"1", "true", "yes", "on"}:
@@ -25,12 +24,11 @@ def _enable_langsmith_tracing() -> None:
 
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
 
-
-def create_deepseek_agent(
+def create_LLM(
     api_key: str | None = None,
     model_name: str | None = None,
 ) -> Any:
-    """创建并返回调用 DeepSeek 的 LangGraph 智能体。"""
+    
     _enable_langsmith_tracing()
 
     resolved_api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
@@ -47,4 +45,11 @@ def create_deepseek_agent(
     model = base_llm.bind_tools(TOOLS)
     summary_model = base_llm
 
-    return build_agent_graph(model=model, summary_model=summary_model)
+    return model,summary_model
+
+
+def create_agent() -> Any:
+    model,summary_model = create_LLM()
+    agent = build_agent_graph(model=model, summary_model=summary_model)
+
+    return agent
