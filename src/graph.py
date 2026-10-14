@@ -16,7 +16,7 @@ from .config import (
     DEFAULT_USER_ROLE,
     MAX_HISTORY_TOKENS,
 )
-from .memory import AgentState, build_memory_context
+from .memory import AgentState, build_memory_context, sanitize_messages
 from .prompts import build_system_prompt
 from .tools import TOOLS
 
@@ -44,9 +44,10 @@ def call_model(
         scene_rule=scene_rule,
         current_time=current_time,
     )
+    recent_messages = sanitize_messages(context["recent_messages"])
     messages = [
         SystemMessage(content=system_prompt),
-        *context["recent_messages"],
+        *recent_messages,
     ]
     response = model.invoke(messages)
     return {
@@ -55,13 +56,19 @@ def call_model(
         "summarized_count": context["summarized_count"],
     }
 
-def build_agent_graph(*, model: Any, summary_model: Any) -> Any:
+def build_agent_graph(
+    *,
+    model: Any,
+    summary_model: Any,
+    tools: Any | None = None,
+) -> Any:
 
     call_model_1 = partial(call_model, model=model, summary_model=summary_model)
-    
+    resolved_tools = TOOLS if tools is None else tools
+
     graph = StateGraph(AgentState)
     graph.add_node("agent", call_model_1)
-    graph.add_node("tools", ToolNode(TOOLS))
+    graph.add_node("tools", ToolNode(resolved_tools))
     graph.add_edge(START, "agent")
     graph.add_conditional_edges("agent", tools_condition)
     graph.add_edge("tools", "agent")

@@ -1,9 +1,9 @@
 import unittest
 from unittest.mock import Mock
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from src.memory import build_memory_context, split_messages
+from src.memory import build_memory_context, sanitize_messages, split_messages
 
 
 class SplitMessagesTest(unittest.TestCase):
@@ -14,6 +14,49 @@ class SplitMessagesTest(unittest.TestCase):
 
         self.assertEqual([message.content for message in recent], ["m1", "m2", "m3", "m4", "m5"])
         self.assertEqual([message.content for message in overflow], ["m0"])
+
+    def test_keeps_tool_message_with_calling_ai(self) -> None:
+        ai_message = AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "extract_specification",
+                    "args": {"user_input": "测试"},
+                    "id": "call_1",
+                    "type": "tool_call",
+                }
+            ],
+        )
+        tool_message = ToolMessage(
+            content='{"status": "updated"}',
+            tool_call_id="call_1",
+        )
+
+        recent, _ = split_messages(
+            [HumanMessage(content="测试"), ai_message, tool_message],
+            max_tokens=1,
+        )
+
+        message_types = [type(message).__name__ for message in recent]
+        self.assertIn("AIMessage", message_types)
+        self.assertIn("ToolMessage", message_types)
+        self.assertLess(
+            message_types.index("AIMessage"),
+            message_types.index("ToolMessage"),
+        )
+
+    def test_sanitize_removes_orphan_tool_message(self) -> None:
+        tool_message = ToolMessage(
+            content='{"status": "updated"}',
+            tool_call_id="missing_call",
+        )
+
+        sanitized = sanitize_messages(
+            [HumanMessage(content="测试"), tool_message]
+        )
+
+        self.assertEqual(len(sanitized), 1)
+        self.assertIsInstance(sanitized[0], HumanMessage)
 
 
 class BuildMemoryContextTest(unittest.TestCase):

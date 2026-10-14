@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ spec.project_name or "项目规格定义书" }}</title>
+    <style>
+      body {
+        max-width: 960px;
+        margin: 2rem auto;
+        padding: 0 1.5rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #1f2937;
+        line-height: 1.7;
+      }
+      h1 { border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; }
+      h2 { margin-top: 2rem; color: #111827; }
+      ul { padding-left: 1.4rem; }
+    </style>
+  </head>
+  <body>
+    <h1>{{ spec.project_name or "项目规格定义书" }}</h1>
+    <p>本文档由规格定义器自动生成，用于沉淀需求讨论结果。</p>
+
+    {% for section in [
+      ("目标用户", spec.target_users),
+      ("功能需求", spec.functional_requirements),
+      ("非功能需求", spec.non_functional_requirements),
+      ("约束条件", spec.constraints),
+      ("交付物", spec.deliverables),
+      ("验证规格", spec.validation_specs),
+      ("技术栈", spec.tech_stack),
+      ("风险", spec.risks)
+    ] %}
+    <h2>{{ section[0] }}</h2>
+    {% if section[1] %}
+    <ul>
+      {% for item in section[1] %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>待补充</p>
+    {% endif %}
+    {% endfor %}
+  </body>
+</html>
