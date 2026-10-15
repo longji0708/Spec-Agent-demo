@@ -4,6 +4,7 @@ from unittest.mock import Mock
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.memory import build_memory_context, sanitize_messages, split_messages
+from src.tokenizer import count_text_tokens
 
 
 class SplitMessagesTest(unittest.TestCase):
@@ -57,6 +58,19 @@ class SplitMessagesTest(unittest.TestCase):
 
         self.assertEqual(len(sanitized), 1)
         self.assertIsInstance(sanitized[0], HumanMessage)
+
+    def test_truncates_single_oversized_message(self) -> None:
+        huge_message = HumanMessage(content="x" * 5000)
+
+        recent, overflow = split_messages(
+            [huge_message],
+            max_tokens=100,
+            max_single_message_tokens=50,
+        )
+
+        self.assertEqual(len(recent), 1)
+        self.assertLessEqual(count_text_tokens(recent[0].content), 50)
+        self.assertEqual(overflow, [])
 
 
 class BuildMemoryContextTest(unittest.TestCase):

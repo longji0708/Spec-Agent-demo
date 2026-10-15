@@ -2,42 +2,79 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from pydantic import BaseModel
 
 from .schemas import ProjectSpecification
 
 
-@dataclass(frozen=True)
-class MissingField:
+class MissingField(BaseModel):
     field: str
     label: str
     reason: str
     follow_up: str
+    required: bool = True
 
 
-REQUIRED_FIELDS: dict[str, str] = {
-    "project_name": "项目名称",
-    "target_users": "目标用户",
-    "functional_requirements": "功能需求",
-    "non_functional_requirements": "非功能需求",
-    "constraints": "约束条件",
-    "deliverables": "交付物",
-    "validation_specs": "验证规格",
-    "tech_stack": "技术栈",
-}
+class FieldRequirement(BaseModel):
+    field: str
+    label: str
+    follow_up: str
+    required: bool = True
 
-_FOLLOW_UP_MESSAGES: dict[str, str] = {
-    "project_name": "请向用户询问：这个项目或产品叫什么名字？",
-    "target_users": "请向用户询问：这个产品主要给谁使用，典型用户画像是什么？",
-    "functional_requirements": "请向用户询问：用户最需要完成哪些核心功能？",
-    "non_functional_requirements": (
-        "请向用户询问：对性能、并发、响应时间、可用性、安全性有什么要求？"
+
+REQUIRED_FIELDS: tuple[FieldRequirement, ...] = (
+    FieldRequirement(
+        field="project_name",
+        label="项目名称",
+        follow_up="请向用户询问：这个项目或产品叫什么名字？",
     ),
-    "constraints": "请向用户询问：成本、时间、平台、合规或技术限制是什么？",
-    "deliverables": "请向用户询问：最终需要交付哪些东西，例如原型、代码、文档？",
-    "validation_specs": "请向用户询问：怎样才算验收通过，有哪些可验证的验收标准？",
-    "tech_stack": "请向用户询问：是否已有指定技术栈，或者希望采用哪些技术？",
-}
+    FieldRequirement(
+        field="target_users",
+        label="目标用户",
+        follow_up="请向用户询问：这个产品主要给谁使用，典型用户画像是什么？",
+    ),
+    FieldRequirement(
+        field="functional_requirements",
+        label="功能需求",
+        follow_up="请向用户询问：用户最需要完成哪些核心功能？",
+    ),
+    FieldRequirement(
+        field="non_functional_requirements",
+        label="非功能需求",
+        follow_up="请向用户询问：对性能、并发、响应时间、可用性、安全性有什么要求？",
+    ),
+    FieldRequirement(
+        field="constraints",
+        label="约束条件",
+        follow_up="请向用户询问：成本、时间、平台、合规或技术限制是什么？",
+    ),
+    FieldRequirement(
+        field="validation_specs",
+        label="验证规格",
+        follow_up="请向用户询问：怎样才算验收通过，有哪些可验证的验收标准？",
+    ),
+)
+
+RECOMMENDED_FIELDS: tuple[FieldRequirement, ...] = (
+    FieldRequirement(
+        field="deliverables",
+        label="交付物",
+        follow_up="请向用户询问：最终需要交付哪些东西，例如原型、代码、文档？",
+        required=False,
+    ),
+    FieldRequirement(
+        field="tech_stack",
+        label="技术栈",
+        follow_up="请向用户询问：是否已有指定技术栈，或者希望采用哪些技术？",
+        required=False,
+    ),
+    FieldRequirement(
+        field="risks",
+        label="风险",
+        follow_up="请向用户询问：目前已知哪些项目风险？",
+        required=False,
+    ),
+)
 
 _PERFORMANCE_KEYWORDS = (
     "性能",
@@ -59,24 +96,30 @@ def _has_performance_indicator(specification: ProjectSpecification) -> bool:
 
 def check_missing_fields(
     specification: ProjectSpecification,
+    required_only: bool = False,
 ) -> list[MissingField]:
     """返回缺失字段，并给出可读的追问话术。"""
     missing: list[MissingField] = []
+    requirements = (
+        REQUIRED_FIELDS if required_only else REQUIRED_FIELDS + RECOMMENDED_FIELDS
+    )
 
-    for field, label in REQUIRED_FIELDS.items():
-        value = getattr(specification, field)
+    for requirement in requirements:
+        value = getattr(specification, requirement.field)
         if not value:
             missing.append(
                 MissingField(
-                    field=field,
-                    label=label,
-                    reason=f"{label}尚未填写",
-                    follow_up=_FOLLOW_UP_MESSAGES[field],
+                    field=requirement.field,
+                    label=requirement.label,
+                    reason=f"{requirement.label}尚未填写",
+                    follow_up=requirement.follow_up,
+                    required=requirement.required,
                 )
             )
 
     if (
-        specification.non_functional_requirements
+        not required_only
+        and specification.non_functional_requirements
         and not _has_performance_indicator(specification)
     ):
         missing.append(
@@ -85,13 +128,8 @@ def check_missing_fields(
                 label="性能指标",
                 reason="已有非功能需求，但缺少并发用户数、响应时间等性能指标",
                 follow_up="缺少并发用户数、响应时间指标，请向用户询问",
+                required=False,
             )
         )
 
     return missing
-
-
-def missing_fields_to_dict(
-    missing_fields: list[MissingField],
-) -> list[dict[str, str]]:
-    return [asdict(item) for item in missing_fields]

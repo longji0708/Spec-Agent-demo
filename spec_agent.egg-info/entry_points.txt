@@ -1,0 +1,2 @@
+[console_scripts]
+spec-agent = src.cli:main

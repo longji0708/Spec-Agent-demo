@@ -26,6 +26,11 @@ class FakeLLM:
         return AIMessage(content=self._patch.model_dump_json(exclude_none=True))
 
 
+class RaisingLLM:
+    def invoke(self, messages):
+        raise AssertionError("fast extraction should not call LLM")
+
+
 class SpecificationMergeTest(unittest.TestCase):
     def test_skips_short_acknowledgement(self) -> None:
         self.assertFalse(should_extract_specification("好的"))
@@ -47,6 +52,21 @@ class SpecificationMergeTest(unittest.TestCase):
         self.assertEqual(merged.functional_requirements, ["登录", "导出报告"])
         self.assertEqual(merged.tech_stack, ["Python"])
 
+    def test_merge_removes_and_replaces_items(self) -> None:
+        current = ProjectSpecification(
+            functional_requirements=["登录", "个人中心"],
+            tech_stack=["Vue", "Python"],
+        )
+        patch = SpecificationPatch(
+            remove_items={"tech_stack": ["Vue"]},
+            replace_lists={"functional_requirements": ["扫码登录"]},
+        )
+
+        merged = merge_specification(current, patch)
+
+        self.assertEqual(merged.functional_requirements, ["扫码登录"])
+        self.assertEqual(merged.tech_stack, ["Python"])
+
     def test_extract_specification_update_uses_llm_output(self) -> None:
         patch = SpecificationPatch(
             project_name="示例项目",
@@ -61,6 +81,15 @@ class SpecificationMergeTest(unittest.TestCase):
 
         self.assertEqual(updated.project_name, "示例项目")
         self.assertEqual(updated.target_users, ["产品经理"])
+
+    def test_fast_extraction_skips_llm_for_simple_project_name(self) -> None:
+        updated = extract_specification_update(
+            ProjectSpecification(),
+            "项目叫示例项目",
+            RaisingLLM(),
+        )
+
+        self.assertEqual(updated.project_name, "示例项目")
 
 
 class ValidationTest(unittest.TestCase):
@@ -118,6 +147,19 @@ class RenderingTest(unittest.TestCase):
             self.assertIn("示例项目", Path(html_path).read_text(encoding="utf-8"))
             self.assertTrue(docx_path.exists())
 
+    def test_html_escapes_user_content(self) -> None:
+        specification = ProjectSpecification(
+            project_name="示例项目",
+            target_users=["<script>alert(1)</script>"],
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            html_path = render_html(specification, tmp_dir)
+            html_content = Path(html_path).read_text(encoding="utf-8")
+
+            self.assertIn("&lt;script&gt;", html_content)
+            self.assertNotIn("<script>alert(1)</script>", html_content)
+
 
 class SpecificationToolkitTest(unittest.TestCase):
     def test_extract_tool_updates_store_and_snapshot(self) -> None:
@@ -138,6 +180,53 @@ class SpecificationToolkitTest(unittest.TestCase):
             self.assertEqual(payload["status"], "updated")
             self.assertTrue((Path(tmp_dir) / "specification.md").exists())
             self.assertFalse(check_payload["complete"])
+
+    def test_short_acknowledgement_skips_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store = SpecificationStore(output_dir=tmp_dir)
+            fake_llm = FakeLLM(SpecificationPatch())
+            tools = build_specification_toolkit(store=store, llm=fake_llm)
+            extract_tool = tools[0]
+
+            result = extract_tool.invoke({"user_input": "好的"})
+            payload = json.loads(result)
+
+            self.assertEqual(payload["status"], "skipped")
+            self.assertFalse((Path(tmp_dir) / "specification.md").exists())
+
+    def test_extract_tool_prefers_structured_args(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store = SpecificationStore(output_dir=tmp_dir)
+            store.replace(ProjectSpecification(functional_requirements=["登录"]))
+            tools = build_specification_toolkit(store=store, llm=RaisingLLM())
+            extract_tool = tools[0]
+
+            result = extract_tool.invoke(
+                {
+                    "user_input": "登录改成扫码登录",
+                    "functional_requirements": ["扫码登录"],
+                    "remove_items": {"functional_requirements": ["登录"]},
+                }
+            )
+            payload = json.loads(result)
+
+            self.assertEqual(payload["status"], "updated")
+            self.assertEqual(store.get().functional_requirements, ["扫码登录"])
+
+    def test_render_is_blocked_when_required_fields_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store = SpecificationStore(output_dir=tmp_dir)
+            store.replace(ProjectSpecification(project_name="示例项目"))
+            tools = build_specification_toolkit(store=store, llm=FakeLLM(SpecificationPatch()))
+            render_tool = tools[3]
+
+            result = render_tool.invoke(
+                {"output_format": "markdown", "output_dir": tmp_dir}
+            )
+            payload = json.loads(result)
+
+            self.assertEqual(payload["status"], "blocked")
+            self.assertFalse((Path(tmp_dir) / "specification.md").exists())
 
 
 if __name__ == "__main__":

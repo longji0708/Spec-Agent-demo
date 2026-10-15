@@ -2,7 +2,7 @@ import unittest
 
 from langchain_core.messages import AIMessageChunk, HumanMessage
 
-from src.chat_ui import stream_agent_replies
+from src.chat_ui import astream_agent_replies, stream_agent_replies
 
 
 class FakeAgent:
@@ -23,6 +23,40 @@ class StreamAgentRepliesTest(unittest.TestCase):
         )
 
         self.assertEqual(chunks, ["你", "好"])
+
+
+class AsyncStreamAgentRepliesTest(unittest.IsolatedAsyncioTestCase):
+    async def test_streams_chat_tokens_and_tool_progress(self) -> None:
+        class FakeAsyncAgent:
+            async def astream_events(self, input, config, version):
+                yield {
+                    "event": "on_tool_start",
+                    "name": "extract_specification",
+                    "tags": [],
+                }
+                yield {
+                    "event": "on_chat_model_stream",
+                    "tags": ["utility_model"],
+                    "data": {"chunk": AIMessageChunk(content="内部")},
+                }
+                yield {
+                    "event": "on_chat_model_stream",
+                    "tags": ["chat_model"],
+                    "data": {"chunk": AIMessageChunk(content="你好")},
+                }
+
+        chunks = [
+            text
+            async for text in astream_agent_replies(
+                FakeAsyncAgent(),
+                HumanMessage(content="测试"),
+                {},
+            )
+        ]
+
+        self.assertIn("正在整理需求", "".join(chunks))
+        self.assertIn("你好", "".join(chunks))
+        self.assertNotIn("内部", "".join(chunks))
 
 
 if __name__ == "__main__":

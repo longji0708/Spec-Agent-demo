@@ -22,20 +22,12 @@
     <h1>{{ spec.project_name or "项目规格定义书" }}</h1>
     <p>本文档由规格定义器自动生成，用于沉淀需求讨论结果。</p>
 
-    {% for section in [
-      ("目标用户", spec.target_users),
-      ("功能需求", spec.functional_requirements),
-      ("非功能需求", spec.non_functional_requirements),
-      ("约束条件", spec.constraints),
-      ("交付物", spec.deliverables),
-      ("验证规格", spec.validation_specs),
-      ("技术栈", spec.tech_stack),
-      ("风险", spec.risks)
-    ] %}
-    <h2>{{ section[0] }}</h2>
-    {% if section[1] %}
+    {% for section in sections %}
+    {% set items = spec|attr(section.key) %}
+    <h2>{{ section.title }}</h2>
+    {% if items %}
     <ul>
-      {% for item in section[1] %}
+      {% for item in items %}
       <li>{{ item }}</li>
       {% endfor %}
     </ul>

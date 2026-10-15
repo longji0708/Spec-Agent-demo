@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import get_origin
+
 from pydantic import BaseModel, Field
 
 
@@ -39,6 +41,9 @@ class SpecificationPatch(BaseModel):
 
     未获得新信息的字段应为 ``None``；列表字段只放入本轮新增内容，
     后续会与已有内容合并，从而避免旧信息被 LLM 省略时丢失。
+
+    ``remove_items`` 用于删除列表字段中的已有条目；``replace_lists``
+    用于用户明确要求“改成/不要再用”时，完整覆盖目标列表字段。
     """
 
     project_name: str | None = Field(default=None, description="项目名称")
@@ -62,6 +67,24 @@ class SpecificationPatch(BaseModel):
     )
     tech_stack: list[str] | None = Field(default=None, description="技术栈列表")
     risks: list[str] | None = Field(default=None, description="风险列表")
+    remove_items: dict[str, list[str]] | None = Field(
+        default=None,
+        description=(
+            "需要从已有列表字段删除的条目。键必须是规格中的列表字段名，"
+            "例如 {'tech_stack': ['Vue']}。"
+        ),
+    )
+    replace_lists: dict[str, list[str]] | None = Field(
+        default=None,
+        description=(
+            "需要整体替换的列表字段。用户说“登录改成扫码登录”“技术栈改成 React”"
+            "等覆盖性修改时使用，值必须是修改后希望保留的完整列表。"
+        ),
+    )
 
 
-SPECIFICATION_FIELDS: tuple[str, ...] = tuple(ProjectSpecification.model_fields.keys())
+LIST_FIELDS: frozenset[str] = frozenset(
+    field_name
+    for field_name, field in ProjectSpecification.model_fields.items()
+    if get_origin(field.annotation) is list
+)

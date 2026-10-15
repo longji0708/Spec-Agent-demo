@@ -1,9 +1,4 @@
-langgraph>=0.2
-langchain-openai>=0.2
-langchain-core>=0.3
-langsmith>=0.1
-python-dotenv>=1.0
-tiktoken>=0.8
-pydantic>=2
-jinja2>=3.1
-python-docx>=1.1
+# 依赖唯一来源是 pyproject.toml 的 [project.dependencies]。
+# 此文件只保留兼容入口，使用 `pip install -r requirements.txt` 会以 editable 模式
+# 安装本项目，并自动读取 pyproject.toml 中声明的全部依赖。
+-e .

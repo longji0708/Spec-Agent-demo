@@ -2,20 +2,42 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader
 
 from .schemas import ProjectSpecification
 
-_TEMPLATE_DIR = Path(__file__).parent / "templates"
-_ENV = Environment(
-    loader=FileSystemLoader(str(_TEMPLATE_DIR)),
-    autoescape=select_autoescape(enabled_extensions=("html",)),
-    trim_blocks=True,
-    lstrip_blocks=True,
+
+@dataclass(frozen=True)
+class SectionConfig:
+    key: str
+    title: str
+
+
+SPECIFICATION_SECTIONS: tuple[SectionConfig, ...] = (
+    SectionConfig(key="target_users", title="目标用户"),
+    SectionConfig(key="functional_requirements", title="功能需求"),
+    SectionConfig(key="non_functional_requirements", title="非功能需求"),
+    SectionConfig(key="constraints", title="约束条件"),
+    SectionConfig(key="deliverables", title="交付物"),
+    SectionConfig(key="validation_specs", title="验证规格"),
+    SectionConfig(key="tech_stack", title="技术栈"),
+    SectionConfig(key="risks", title="风险"),
 )
 
+_TEMPLATE_DIR = Path(__file__).parent / "templates"
+_COMMON_ENV_OPTIONS = {
+    "loader": FileSystemLoader(str(_TEMPLATE_DIR)),
+    "trim_blocks": True,
+    "lstrip_blocks": True,
+}
+_MD_ENV = Environment(autoescape=False, **_COMMON_ENV_OPTIONS)
+_HTML_ENV = Environment(
+    autoescape=True,
+    **_COMMON_ENV_OPTIONS,
+)
 
 def _ensure_output_dir(output_dir: str | Path) -> Path:
     path = Path(output_dir)
@@ -28,8 +50,11 @@ def render_markdown(
     output_dir: str | Path,
     filename: str = "specification.md",
 ) -> Path:
-    template = _ENV.get_template("specification.md.j2")
-    content = template.render(spec=specification)
+    template = _MD_ENV.get_template("specification.md.j2")
+    content = template.render(
+        spec=specification,
+        sections=SPECIFICATION_SECTIONS,
+    )
     output_path = _ensure_output_dir(output_dir) / filename
     output_path.write_text(content, encoding="utf-8")
     return output_path
@@ -40,8 +65,11 @@ def render_html(
     output_dir: str | Path,
     filename: str = "specification.html",
 ) -> Path:
-    template = _ENV.get_template("specification.html.j2")
-    content = template.render(spec=specification)
+    template = _HTML_ENV.get_template("specification.html.j2")
+    content = template.render(
+        spec=specification,
+        sections=SPECIFICATION_SECTIONS,
+    )
     output_path = _ensure_output_dir(output_dir) / filename
     output_path.write_text(content, encoding="utf-8")
     return output_path
@@ -64,19 +92,9 @@ def render_docx(
     title = specification.project_name or "项目规格定义书"
     document.add_heading(title, level=0)
 
-    sections = {
-        "目标用户": specification.target_users,
-        "功能需求": specification.functional_requirements,
-        "非功能需求": specification.non_functional_requirements,
-        "约束条件": specification.constraints,
-        "交付物": specification.deliverables,
-        "验证规格": specification.validation_specs,
-        "技术栈": specification.tech_stack,
-        "风险": specification.risks,
-    }
-
-    for heading, items in sections.items():
-        document.add_heading(heading, level=1)
+    for section in SPECIFICATION_SECTIONS:
+        items = getattr(specification, section.key)
+        document.add_heading(section.title, level=1)
         if items:
             for item in items:
                 document.add_paragraph(item, style="List Bullet")
@@ -95,14 +113,20 @@ def render_specification(
 ) -> Path:
     """按格式渲染规格定义文档。"""
     normalized_format = output_format.lower().strip()
+    renderer = _RENDERERS.get(normalized_format)
+    if renderer is None:
+        raise ValueError(
+            f"不支持的输出格式：{output_format}，可选值为 markdown、html、word。"
+        )
 
-    if normalized_format in {"markdown", "md"}:
-        return render_markdown(specification, output_dir)
-    if normalized_format in {"html", "htm"}:
-        return render_html(specification, output_dir)
-    if normalized_format in {"word", "docx"}:
-        return render_docx(specification, output_dir)
+    return renderer(specification, output_dir)
 
-    raise ValueError(
-        f"不支持的输出格式：{output_format}，可选值为 markdown、html、word。"
-    )
+
+_RENDERERS = {
+    "markdown": render_markdown,
+    "md": render_markdown,
+    "html": render_html,
+    "htm": render_html,
+    "word": render_docx,
+    "docx": render_docx,
+}

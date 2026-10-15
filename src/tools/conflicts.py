@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from pydantic import BaseModel
 
 from .schemas import ProjectSpecification
 
 
-@dataclass(frozen=True)
-class Conflict:
+class Conflict(BaseModel):
     code: str
     description: str
     suggestion: str
@@ -111,7 +110,3 @@ def detect_conflicts(
         )
 
     return conflicts
-
-
-def conflicts_to_dict(conflicts: list[Conflict]) -> list[dict[str, object]]:
-    return [asdict(item) for item in conflicts]

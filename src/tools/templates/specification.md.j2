@@ -2,74 +2,14 @@
 
 > 本文档由规格定义器自动生成，用于沉淀需求讨论结果。
 
-## 1. 目标用户
-{% if spec.target_users %}
-{% for item in spec.target_users %}
+{% for section in sections %}
+## {{ loop.index }}. {{ section.title }}
+{% set items = spec|attr(section.key) %}
+{% if items %}
+{% for item in items %}
 - {{ item }}
 {% endfor %}
 {% else %}
 - 待补充
 {% endif %}
-
-## 2. 功能需求
-{% if spec.functional_requirements %}
-{% for item in spec.functional_requirements %}
-- {{ item }}
 {% endfor %}
-{% else %}
-- 待补充
-{% endif %}
-
-## 3. 非功能需求
-{% if spec.non_functional_requirements %}
-{% for item in spec.non_functional_requirements %}
-- {{ item }}
-{% endfor %}
-{% else %}
-- 待补充
-{% endif %}
-
-## 4. 约束条件
-{% if spec.constraints %}
-{% for item in spec.constraints %}
-- {{ item }}
-{% endfor %}
-{% else %}
-- 待补充
-{% endif %}
-
-## 5. 交付物
-{% if spec.deliverables %}
-{% for item in spec.deliverables %}
-- {{ item }}
-{% endfor %}
-{% else %}
-- 待补充
-{% endif %}
-
-## 6. 验证规格
-{% if spec.validation_specs %}
-{% for item in spec.validation_specs %}
-- {{ item }}
-{% endfor %}
-{% else %}
-- 待补充
-{% endif %}
-
-## 7. 技术栈
-{% if spec.tech_stack %}
-{% for item in spec.tech_stack %}
-- {{ item }}
-{% endfor %}
-{% else %}
-- 待补充
-{% endif %}
-
-## 8. 风险
-{% if spec.risks %}
-{% for item in spec.risks %}
-- {{ item }}
-{% endfor %}
-{% else %}
-- 待补充
-{% endif %}

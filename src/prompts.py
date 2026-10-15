@@ -22,14 +22,21 @@ def build_system_prompt(
         当前时间：{current_time}
 
         可用工具：
-        - extract_specification：用户每轮提供新信息后调用，把自然语言增量更新为规格对象，保存 specification.md 快照，并直接返回 missing 和 conflicts。
+        - extract_specification：用户每轮提供新信息后调用，把自然语言增量更新为规格对象，
+          优先把 project_name、target_users、functional_requirements、tech_stack 等字段
+          直接写进工具参数；只有无法可靠结构化时才只传 user_input。保存 specification.md
+          快照，并直接返回 missing 和 conflicts；简单确认语会返回 skipped，不会写快照。
         - check_missing_fields：检查当前规格缺失的必填项，返回缺失条目和追问建议。
         - detect_specification_conflicts：检查规格内部矛盾，返回冲突描述和澄清建议。
-        - render_specification_document：当信息足够且无关键冲突时，生成最终 Markdown、HTML 或 Word 文档。
+        - render_specification_document：当必填字段足够且无关键冲突时，生成最终
+          Markdown、HTML 或 Word 文档；否则工具会返回 blocked，要求先澄清。
 
         推荐工作流：
-        1. 只有用户提供新的需求信息时才调用 extract_specification；对于“好的、对、嗯”等确认语，不要调用工具，直接简短回应。
-        2. extract_specification 会直接返回 missing 和 conflicts，你根据这两个结果自然追问，不要重复调用检查工具。
+        1. 只有用户提供新的需求信息时才调用一次 extract_specification；
+           对于“好的、对、嗯”等确认语，不要调用工具，直接简短回应。
+        2. 同一轮不要重复调用 extract_specification，也不要连续调用 check_missing_fields
+           或 detect_specification_conflicts；extract_specification 已经返回 missing 和
+           conflicts，直接据此追问。
         3. 若 conflicts 非空，先向用户澄清冲突，再继续收集信息。
         4. 信息足够且没有关键冲突后，调用 render_specification_document，并告诉用户文件位置。
 

@@ -3,6 +3,9 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
-
+.vscode
 # 旧的持久化记忆文件；当前版本只使用进程内短期记忆
 agent_memory.db*
+
+# 规格文档输出目录
+output/

@@ -1,13 +1,33 @@
-from dotenv import load_dotenv
+import asyncio
+import logging
+
 from langchain_core.messages import HumanMessage
 
 from .agent import create_agent
-from .chat_ui import ai_label, error_label, hint, stream_agent_replies, user_label
-from .config import CLI_THREAD_ID
+from .chat_ui import (
+    ai_label,
+    astream_agent_replies,
+    error_label,
+    hint,
+    user_label,
+)
+from .config import CLI_THREAD_ID, load_settings
 
 
-def main() -> None:
-    load_dotenv()
+def _log_summary_task_done(task: asyncio.Task[None]) -> None:
+    try:
+        task.result()
+    except Exception:
+        logging.getLogger(__name__).exception("后台摘要更新失败")
+
+
+async def _run() -> None:
+    settings = load_settings()
+    if settings.timing_enabled:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(name)s %(message)s",
+        )
     agent = create_agent()
 
     print(hint("规格定义智能助手已启动。"))
@@ -31,7 +51,7 @@ def main() -> None:
 
         has_output = False
         try:
-            for text in stream_agent_replies(
+            async for text in astream_agent_replies(
                 agent,
                 HumanMessage(content=question),
                 thread_config,
@@ -46,6 +66,15 @@ def main() -> None:
         if not has_output:
             print(hint("（没有收到文本回复）"), end="")
         print()
+
+        summary_task = asyncio.create_task(
+            asyncio.to_thread(agent.finalize_memory, thread_config)
+        )
+        summary_task.add_done_callback(_log_summary_task_done)
+
+
+def main() -> None:
+    asyncio.run(_run())
 
 
 if __name__ == "__main__":

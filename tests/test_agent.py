@@ -1,12 +1,6 @@
 import unittest
 
 from src.agent import create_agent
-from src.tools import add
-
-
-class AddToolTest(unittest.TestCase):
-    def test_add(self) -> None:
-        self.assertEqual(add(2, 3), 5)
 
 
 class CreateAgentTest(unittest.TestCase):
