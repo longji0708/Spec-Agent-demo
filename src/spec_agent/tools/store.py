@@ -70,22 +70,33 @@ class SpecificationStore:
         os.replace(tmp_path, self.storage_path)
 
     @classmethod
-    def load(cls, storage_path: str | Path) -> SpecificationStore:
-        """从已有的 ``specification.json`` 恢复规格对象。"""
+    def load(
+        cls,
+        storage_path: str | Path,
+        project_id: str | None = None,
+    ) -> SpecificationStore:
+        """从已有的 ``specification.json`` 恢复规格对象。
+
+        优先使用 JSON 中保存的 ``project_id``；需要迁移或覆盖时，可显式传入
+        ``project_id``。
+        """
         path = Path(storage_path)
+        payload = cls._read_payload(path)
+        saved_project_id = payload.get("project_id")
+        resolved_project_id = (
+            project_id
+            or (saved_project_id if isinstance(saved_project_id, str) else path.stem)
+            or path.stem
+        )
         return cls(
             storage_path=path,
-            project_id=path.stem,
+            project_id=resolved_project_id,
         )
 
     def _load_or_default(self) -> ProjectSpecification:
         if self.storage_path is None or not self.storage_path.exists():
             return ProjectSpecification()
-        try:
-            payload = json.loads(self.storage_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ValueError(f"无法读取规格文件：{self.storage_path}") from exc
-
+        payload = self._read_payload(self.storage_path)
         specification_data = (
             payload.get("specification")
             if isinstance(payload, dict) and "specification" in payload
@@ -95,6 +106,14 @@ class SpecificationStore:
             return ProjectSpecification.model_validate(specification_data)
         except ValueError as exc:
             raise ValueError(f"规格文件内容无效：{self.storage_path}") from exc
+
+    @staticmethod
+    def _read_payload(path: Path) -> dict[str, object]:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"无法读取规格文件：{path}") from exc
+        return payload if isinstance(payload, dict) else {}
 
     def snapshot_path(self, filename: str = "specification.md") -> Path:
         return self.output_dir / filename

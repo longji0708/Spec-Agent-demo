@@ -38,6 +38,16 @@ class SpecificationStorePersistenceTest(unittest.TestCase):
             self.assertEqual(first.output_dir, Path(tmp_dir) / "a")
             self.assertEqual(second.output_dir, Path(tmp_dir) / "b")
 
+    def test_load_restores_saved_project_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            storage_path = Path(tmp_dir) / "specification.json"
+            SpecificationStore(storage_path=storage_path, project_id="demo")
+
+            restored = SpecificationStore.load(storage_path)
+
+            self.assertEqual(restored.project_id, "demo")
+            self.assertEqual(restored.output_dir, Path(tmp_dir) / "demo")
+
 
 if __name__ == "__main__":
     unittest.main()

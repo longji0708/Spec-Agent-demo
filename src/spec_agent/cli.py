@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import logging
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -129,14 +130,18 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--storage", type=Path, help="规格 JSON 持久化文件路径")
     parser.add_argument("--project", default="default", help="项目 ID，默认 default")
     args = parser.parse_args(argv)
-    asyncio.run(
-        _run(
-            prompt=args.prompt,
-            demo=args.demo,
-            storage_path=args.storage,
-            project_id=args.project,
+    try:
+        asyncio.run(
+            _run(
+                prompt=args.prompt,
+                demo=args.demo,
+                storage_path=args.storage,
+                project_id=args.project,
+            )
         )
-    )
+    except ValueError as exc:
+        print(f"配置错误：{exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 import io
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from spec_agent.cli import main
@@ -35,8 +35,9 @@ class CliEntryPointTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             storage_path = Path(tmp_dir) / "broken.json"
             storage_path.write_text("{not-json", encoding="utf-8")
+            stderr = io.StringIO()
 
-            with self.assertRaises(ValueError):
+            with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
                 main(
                     [
                         "--demo",
@@ -48,6 +49,9 @@ class CliEntryPointTest(unittest.TestCase):
                         "broken",
                     ]
                 )
+
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("配置错误", stderr.getvalue())
 
 
 if __name__ == "__main__":
