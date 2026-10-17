@@ -6,7 +6,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any
 
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, message_chunk_to_message
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, StateGraph
@@ -63,8 +63,15 @@ def call_model(
     ]
     with phase("chat_model_stream"):
         response_chunks = list(model.stream(messages, config=config))
+    if response_chunks:
+        merged_chunk = response_chunks[0]
+        for chunk in response_chunks[1:]:
+            merged_chunk = merged_chunk + chunk
+        response_messages = [message_chunk_to_message(merged_chunk)]
+    else:
+        response_messages = []
     return {
-        "messages": response_chunks,
+        "messages": response_messages,
         "memory_summary": context["memory_summary"],
         "summarized_count": context["summarized_count"],
         "last_summarized_message_id": context["last_summarized_message_id"],

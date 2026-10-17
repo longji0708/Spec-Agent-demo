@@ -30,9 +30,9 @@ class DemoEndToEndTest(unittest.TestCase):
 
             chunks = [chunk for chunk, _ in streamed]
             text = "".join(
-                chunk.content
+                getattr(chunk, "content", "")
                 for chunk in chunks
-                if isinstance(chunk, AIMessageChunk) and chunk.content
+                if getattr(chunk, "content", "")
             )
 
             self.assertTrue(any(isinstance(chunk, ToolMessage) for chunk in chunks))
@@ -61,6 +61,67 @@ class DemoEndToEndTest(unittest.TestCase):
             agent.finalize_memory(config)
 
             self.assertEqual(chat_model.invoke([]).content, chat_model._final_text)
+
+    def test_streaming_tool_call_chunks_are_merged_before_state_update(self) -> None:
+        class StreamingToolCallModel:
+            def __init__(self) -> None:
+                self.called_tool = False
+
+            def bind_tools(self, tools):
+                self.tools = tools
+                return self
+
+            def stream(self, messages, config=None, **kwargs):
+                if not self.called_tool:
+                    self.called_tool = True
+                    yield AIMessageChunk(
+                        content="",
+                        id="call_stream",
+                        tool_calls=[
+                            {
+                                "name": "extract_specification",
+                                "args": {
+                                    "user_input": "项目叫流式项目",
+                                    "project_name": "流式项目",
+                                },
+                                "id": "call_stream",
+                                "type": "tool_call",
+                            }
+                        ],
+                    )
+                    yield AIMessageChunk(content="", id="call_stream")
+                else:
+                    yield AIMessageChunk(content="流式工具调用已完成")
+
+            def invoke(self, messages, config=None, **kwargs):
+                return AIMessageChunk(content="流式工具调用已完成")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store = SpecificationStore(output_dir=tmp_dir)
+            _, utility_model = create_demo_models()
+            agent = create_agent(
+                chat_model=StreamingToolCallModel(),
+                utility_model=utility_model,
+                spec_store=store,
+            )
+
+            streamed = list(
+                agent.stream(
+                    {"messages": [HumanMessage(content="流式演示")]},
+                    config={"configurable": {"thread_id": "streaming-tool-call"}},
+                    stream_mode="messages",
+                )
+            )
+            chunks = [chunk for chunk, _ in streamed]
+            text = "".join(
+                getattr(chunk, "content", "")
+                for chunk in chunks
+                if getattr(chunk, "content", "")
+            )
+
+            self.assertTrue(any(isinstance(chunk, ToolMessage) for chunk in chunks))
+            self.assertEqual(store.get().project_name, "流式项目")
+            self.assertIn("流式工具调用已完成", text)
 
 
 if __name__ == "__main__":

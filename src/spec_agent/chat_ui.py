@@ -21,6 +21,12 @@ _RESET = "\033[0m"
 _BOLD = "\033[1m"
 
 
+class AgentProgressText(str):
+    """进度提示文本，便于 CLI 与最终回复文本区分。"""
+
+    is_progress = True
+
+
 def _supports_color() -> bool:
     return sys.stdout.isatty() and os.getenv("NO_COLOR") is None
 
@@ -101,7 +107,7 @@ async def astream_agent_replies(
             tool_name = event.get("name") or "工具"
             tool_call_count += 1
             tool_started_at[event.get("run_id") or tool_name] = time.perf_counter()
-            yield f"\n{hint(_tool_progress_label(tool_name))}\n"
+            yield AgentProgressText(f"\n{hint(_tool_progress_label(tool_name))}\n")
             continue
 
         if event_type == "on_tool_end":

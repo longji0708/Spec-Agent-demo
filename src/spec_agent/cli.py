@@ -56,7 +56,8 @@ async def _run_once(
                 HumanMessage(content=question),
                 _thread_config(),
             ):
-                has_output = True
+                if not getattr(text, "is_progress", False):
+                    has_output = True
                 print(text, end="", flush=True)
     except Exception as exc:
         has_output = True
