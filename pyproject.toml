@@ -7,6 +7,7 @@ name = "spec-agent"
 version = "0.1.0"
 description = "AI-powered project specification assistant built with LangGraph and OpenAI-compatible LLMs."
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
     "langgraph>=0.2",
@@ -23,19 +24,20 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
+    "pytest-cov>=5",
     "ruff>=0.6",
     "mypy>=1.10",
 ]
 
 [project.scripts]
-spec-agent = "src.cli:main"
+spec-agent = "spec_agent.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+where = ["src"]
+include = ["spec_agent*"]
 
 [tool.setuptools.package-data]
-src = ["tools/templates/*.j2"]
+spec_agent = ["tools/templates/*.j2"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

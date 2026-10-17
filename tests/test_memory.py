@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from src.memory import build_memory_context, sanitize_messages, split_messages
-from src.tokenizer import count_text_tokens
+from spec_agent.memory import build_memory_context, sanitize_messages, split_messages
+from spec_agent.tokenizer import count_text_tokens
 
 
 class SplitMessagesTest(unittest.TestCase):

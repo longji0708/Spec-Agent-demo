@@ -28,15 +28,18 @@ SPECIFICATION_SECTIONS: tuple[SectionConfig, ...] = (
 )
 
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
-_COMMON_ENV_OPTIONS = {
-    "loader": FileSystemLoader(str(_TEMPLATE_DIR)),
-    "trim_blocks": True,
-    "lstrip_blocks": True,
-}
-_MD_ENV = Environment(autoescape=False, **_COMMON_ENV_OPTIONS)
+_TEMPLATE_LOADER = FileSystemLoader(str(_TEMPLATE_DIR))
+_MD_ENV = Environment(
+    loader=_TEMPLATE_LOADER,
+    autoescape=False,
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
 _HTML_ENV = Environment(
+    loader=_TEMPLATE_LOADER,
     autoescape=True,
-    **_COMMON_ENV_OPTIONS,
+    trim_blocks=True,
+    lstrip_blocks=True,
 )
 
 def _ensure_output_dir(output_dir: str | Path) -> Path:
@@ -102,7 +105,7 @@ def render_docx(
             document.add_paragraph("待补充")
 
     output_path = _ensure_output_dir(output_dir) / filename
-    document.save(output_path)
+    document.save(str(output_path))
     return output_path
 
 

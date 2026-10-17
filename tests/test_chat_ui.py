@@ -2,7 +2,7 @@ import unittest
 
 from langchain_core.messages import AIMessageChunk, HumanMessage
 
-from src.chat_ui import astream_agent_replies, stream_agent_replies
+from spec_agent.chat_ui import astream_agent_replies, stream_agent_replies
 
 
 class FakeAgent:

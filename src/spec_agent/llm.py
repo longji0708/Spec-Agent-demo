@@ -16,6 +16,10 @@ def enable_langsmith_tracing(settings: Settings | None = None) -> None:
         return
 
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    if resolved_settings.langsmith_api_key:
+        os.environ["LANGCHAIN_API_KEY"] = resolved_settings.langsmith_api_key
+    if resolved_settings.langsmith_project:
+        os.environ["LANGCHAIN_PROJECT"] = resolved_settings.langsmith_project
 
 
 def create_base_llm(

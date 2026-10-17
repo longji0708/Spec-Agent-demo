@@ -10,44 +10,50 @@
 ├── .env.example          # 环境变量示例
 ├── requirements.txt      # 依赖清单
 ├── pyproject.toml        # 项目元数据、打包与开发工具配置
+├── LICENSE
 ├── README.md
 ├── .github/
 │   └── workflows/ci.yml  # CI 检查
 ├── src/
-│   ├── __init__.py
-│   ├── __main__.py       # 命令行入口
-│   ├── agent.py          # 智能体 API 门面
-│   ├── runtime.py        # 智能体运行时装配
-│   ├── llm.py            # OpenAI 兼容模型创建与 LangSmith 配置
-│   ├── graph.py          # LangGraph 图、节点和路由定义
-│   ├── memory.py         # 短期记忆门面
-│   ├── tokenizer.py      # token 估算
-│   ├── history_window.py # 最近消息窗口切分
-│   ├── message_sanitizer.py # 消息序列清洗
-│   ├── summarizer.py     # 历史消息摘要
-│   ├── messages.py       # 消息文本转换
-│   ├── prompts.py        # 系统提示词
-│   ├── config.py         # 默认配置
-│   ├── chat_ui.py        # 命令行配色与流式输出
-│   ├── tools/            # 工具定义与注册
-│   │   ├── __init__.py
-│   │   ├── schemas.py    # Pydantic 规格模型
-│   │   ├── store.py      # 会话内规格存储
-│   │   ├── extraction.py # 信息抽取与增量合并
-│   │   ├── validation.py # 缺失字段检查
-│   │   ├── conflicts.py  # 规格冲突检测
-│   │   ├── rendering.py  # Markdown/HTML/Word 渲染
-│   │   ├── registry.py   # LangChain 工具装配
-│   │   └── templates/
-│   │       ├── specification.md.j2
-│   │       └── specification.html.j2
-│   └── cli.py            # 交互式命令行
+│   └── spec_agent/
+│       ├── __init__.py
+│       ├── __main__.py       # 命令行入口
+│       ├── agent.py          # 智能体 API 门面
+│       ├── runtime.py        # 智能体运行时装配
+│       ├── llm.py            # OpenAI 兼容模型创建与 LangSmith 配置
+│       ├── graph.py          # LangGraph 图、节点和路由定义
+│       ├── memory.py         # 短期记忆门面
+│       ├── tokenizer.py      # token 估算
+│       ├── history_window.py # 最近消息窗口切分
+│       ├── message_sanitizer.py # 消息序列清洗
+│       ├── summarizer.py     # 历史消息摘要
+│       ├── messages.py       # 消息文本转换
+│       ├── prompts.py        # 系统提示词
+│       ├── config.py         # 默认配置
+│       ├── chat_ui.py        # 命令行配色与流式输出
+│       ├── demo.py           # 无需 API Key 的本地演示模型
+│       ├── tools/            # 工具定义与注册
+│       │   ├── __init__.py
+│       │   ├── schemas.py    # Pydantic 规格模型
+│       │   ├── store.py      # 会话内规格存储
+│       │   ├── extraction.py # 信息抽取与增量合并
+│       │   ├── validation.py # 缺失字段检查
+│       │   ├── conflicts.py  # 规格冲突检测
+│       │   ├── rendering.py  # Markdown/HTML/Word 渲染
+│       │   ├── registry.py   # LangChain 工具装配
+│       │   └── templates/
+│       │       ├── specification.md.j2
+│       │       └── specification.html.j2
+│       └── cli.py            # 交互式命令行
 ├── docs/
 │   └── architecture.md   # 架构说明
 └── tests/
     ├── test_agent.py     # 单元测试
+    ├── test_config.py    # 配置解析测试
+    ├── test_demo.py      # Fake LLM 端到端流程测试
     ├── test_memory.py    # 短期记忆单元测试
     ├── test_chat_ui.py   # 流式输出单元测试
+    ├── test_store.py     # 规格 JSON 持久化测试
     └── test_specification_tools.py  # 规格工具单元测试
 ```
 
@@ -63,10 +69,37 @@ Copy-Item .env.example .env
 python -m pip install -e .
 
 # 3. 启动
-python -m src
+spec-agent
+# 或：python -m spec_agent
 ```
 
 输入 `exit`、`quit` 或 `退出` 可以结束程序。
+
+## 非交互与演示模式
+
+无需 API Key 也可以先跑通完整 LangGraph 工具流程：
+
+```powershell
+spec-agent --demo --prompt "我想做一个演示项目"
+```
+
+正式环境单次调用：
+
+```powershell
+spec-agent --prompt "我要做一个面向产品经理的规格定义工具"
+```
+
+## 规格 JSON 持久化
+
+默认会话使用内存存储；传入 `--storage` 后，规格对象会持续写入 JSON，
+下次可从同一文件继续编辑：
+
+```powershell
+spec-agent --storage output/my-project.json --project my-project
+```
+
+已保存的规格也可以通过 `SpecificationStore.load()` 恢复；同一目录下不同
+`project_id` 会使用独立输出子目录，避免 Markdown/HTML/Word 互相覆盖。
 
 ## 规格定义工具
 
@@ -77,25 +110,25 @@ python -m src
 - `detect_specification_conflicts`：检查低成本 vs 高并发、离线可用 vs 实时同步等内部矛盾。
 - `render_specification_document`：在必填字段完整且无关键冲突时生成最终的 Markdown、HTML 或 Word 规格定义文档；否则返回 blocked，可通过 `force=true` 强制导出。
 
-默认输出目录是项目根目录下的 `output/`，最终文件为：
+默认输出目录是项目根目录下的 `output/<project_id>/`，最终文件为：
 
 ```text
-output/specification.md
-output/specification.html
-output/specification.docx
+output/default/specification.md
+output/default/specification.html
+output/default/specification.docx
 ```
 
 ## 记忆机制
 
-会话只使用短期记忆。LangGraph 使用 `MemorySaver` 作为 checkpointer，
+对话历史只使用短期记忆。LangGraph 使用 `MemorySaver` 作为 checkpointer，
 不会写入 `agent_memory.db`。最近的消息会完整保留在提示词中，超出 token
-窗口的旧消息会被压缩成摘要；程序或命令行窗口退出后，这些消息和摘要都会
-随进程释放，不会保留到下一次启动。
+窗口的旧消息会被压缩成摘要；进程退出后对话历史和摘要会释放。
+规格对象则可选通过 `--storage` 持久化，不受对话记忆策略影响。
 
 ## 运行测试
 
 ```powershell
-python -m unittest discover -s tests
+python -m pytest --cov=spec_agent --cov-report=term-missing
 ```
 
 ## 环境变量
@@ -104,7 +137,7 @@ python -m unittest discover -s tests
 | --- | --- | --- |
 | `LLM_API_KEY` | 是 | OpenAI 兼容接口的 API Key |
 | `LLM_MODEL` | 否 | 对话模型名称，默认 `gpt-4o-mini` |
-| `LLM_BASE_URL` | 否 | OpenAI 兼容接口地址；为空时使用 ChatOpenAI 默认地址 |
+| `LLM_BASE_URL` | 否 | OpenAI 兼容接口地址 |
 | `LLM_UTILITY_MODEL` | 否 | 抽取/摘要工具使用的模型；为空时复用 `LLM_MODEL` |
 | `LLM_CONTEXT_WINDOW` | 否 | 用于自动计算历史窗口的上下文窗口大小，默认 `65536` |
 | `SPEC_AGENT_USER_ROLE` | 否 | 用户身份提示词，默认 `项目开发人员` |

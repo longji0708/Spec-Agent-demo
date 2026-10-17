@@ -20,6 +20,13 @@ from .store import SpecificationStore
 from .validation import check_missing_fields as validate_missing_fields
 
 
+def _error_result(message: str) -> str:
+    return json.dumps(
+        {"status": "error", "message": message},
+        ensure_ascii=False,
+    )
+
+
 def build_specification_toolkit(
     *,
     store: SpecificationStore,
@@ -79,12 +86,15 @@ def build_specification_toolkit(
                 ensure_ascii=False,
             )
 
-        store.replace(updated)
-        markdown_path = render_specification(
-            updated,
-            store.output_dir,
-            "markdown",
-        )
+        try:
+            store.replace(updated)
+            markdown_path = render_specification(
+                updated,
+                store.output_dir,
+                "markdown",
+            )
+        except (OSError, ValueError) as exc:
+            return _error_result(f"规格更新或快照生成失败：{exc}")
         missing = validate_missing_fields(updated)
         conflicts = detect_conflicts(updated)
         return json.dumps(
@@ -174,11 +184,21 @@ def build_specification_toolkit(
             )
 
         target_dir = Path(output_dir) if output_dir else store.output_dir
-        output_path = render_specification(
-            specification,
-            target_dir,
-            output_format,
-        )
+        try:
+            target_dir.resolve().relative_to(store.output_dir.resolve())
+        except ValueError:
+            return _error_result(
+                "输出目录必须位于当前项目的 output 根目录内，不能写入任意路径。"
+            )
+
+        try:
+            output_path = render_specification(
+                specification,
+                target_dir,
+                output_format,
+            )
+        except (OSError, ValueError) as exc:
+            return _error_result(str(exc))
         return json.dumps(
             {
                 "status": "rendered",

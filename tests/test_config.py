@@ -1,6 +1,6 @@
 import unittest
 
-from src.config import Settings
+from spec_agent.config import Settings
 
 
 class SettingsFromEnvTest(unittest.TestCase):

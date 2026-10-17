@@ -130,27 +130,42 @@ def create_agent(
     llm_timeout: float | None = None,
     llm_max_retries: int | None = None,
     base_url: str | None = None,
+    storage_path: str | Path | None = None,
+    project_id: str = "default",
+    chat_model: Any | None = None,
+    utility_model: Any | None = None,
 ) -> Any:
     """创建带规格定义工具的智能体。"""
     settings = get_settings()
-    utility_llm = create_utility_llm(
-        api_key=api_key,
-        model_name=utility_model_name,
-        base_url=base_url,
-        temperature=utility_temperature,
-        timeout=llm_timeout,
-        max_retries=llm_max_retries,
-    )
-    chat_llm = create_chat_llm(
-        api_key=api_key,
-        model_name=model_name,
-        base_url=base_url,
-        temperature=chat_temperature,
-        timeout=llm_timeout,
-        max_retries=llm_max_retries,
-    )
+    if chat_model is None:
+        chat_llm = create_chat_llm(
+            api_key=api_key,
+            model_name=model_name,
+            base_url=base_url,
+            temperature=chat_temperature,
+            timeout=llm_timeout,
+            max_retries=llm_max_retries,
+        )
+    else:
+        chat_llm = chat_model
 
-    store = spec_store or SpecificationStore(output_dir=output_dir)
+    if utility_model is None:
+        utility_llm = create_utility_llm(
+            api_key=api_key,
+            model_name=utility_model_name,
+            base_url=base_url,
+            temperature=utility_temperature,
+            timeout=llm_timeout,
+            max_retries=llm_max_retries,
+        )
+    else:
+        utility_llm = utility_model
+
+    store = spec_store or SpecificationStore(
+        output_dir=output_dir,
+        storage_path=storage_path,
+        project_id=project_id,
+    )
     tools = build_specification_toolkit(store=store, llm=utility_llm)
     model = chat_llm.bind_tools(tools)
     resolved_max_history_tokens = settings.resolve_history_token_budget(

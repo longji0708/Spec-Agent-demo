@@ -5,17 +5,17 @@ from pathlib import Path
 
 from langchain_core.messages import AIMessage
 
-from src.tools.conflicts import detect_conflicts
-from src.tools.extraction import (
+from spec_agent.tools.conflicts import detect_conflicts
+from spec_agent.tools.extraction import (
     extract_specification_update,
     merge_specification,
     should_extract_specification,
 )
-from src.tools.registry import build_specification_toolkit
-from src.tools.rendering import render_docx, render_html, render_markdown
-from src.tools.schemas import ProjectSpecification, SpecificationPatch
-from src.tools.store import SpecificationStore
-from src.tools.validation import check_missing_fields
+from spec_agent.tools.registry import build_specification_toolkit
+from spec_agent.tools.rendering import render_docx, render_html, render_markdown
+from spec_agent.tools.schemas import ProjectSpecification, SpecificationPatch
+from spec_agent.tools.store import SpecificationStore
+from spec_agent.tools.validation import check_missing_fields
 
 
 class FakeLLM:
@@ -227,6 +227,52 @@ class SpecificationToolkitTest(unittest.TestCase):
 
             self.assertEqual(payload["status"], "blocked")
             self.assertFalse((Path(tmp_dir) / "specification.md").exists())
+
+    def test_render_returns_error_for_invalid_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store = SpecificationStore(output_dir=tmp_dir)
+            store.replace(
+                ProjectSpecification(
+                    project_name="示例项目",
+                    target_users=["产品经理"],
+                    functional_requirements=["登录"],
+                    non_functional_requirements=["支持 100 并发"],
+                    constraints=["两周内上线"],
+                    validation_specs=["登录功能通过验收"],
+                )
+            )
+            tools = build_specification_toolkit(store=store, llm=FakeLLM(SpecificationPatch()))
+            render_tool = tools[3]
+
+            result = render_tool.invoke({"output_format": "pdf", "output_dir": tmp_dir})
+            payload = json.loads(result)
+
+            self.assertEqual(payload["status"], "error")
+            self.assertIn("不支持的输出格式", payload["message"])
+
+    def test_render_rejects_output_dir_outside_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store = SpecificationStore(output_dir=Path(tmp_dir) / "output")
+            store.replace(
+                ProjectSpecification(
+                    project_name="示例项目",
+                    target_users=["产品经理"],
+                    functional_requirements=["登录"],
+                    non_functional_requirements=["支持 100 并发"],
+                    constraints=["两周内上线"],
+                    validation_specs=["登录功能通过验收"],
+                )
+            )
+            tools = build_specification_toolkit(store=store, llm=FakeLLM(SpecificationPatch()))
+            render_tool = tools[3]
+
+            result = render_tool.invoke(
+                {"output_format": "markdown", "output_dir": tmp_dir}
+            )
+            payload = json.loads(result)
+
+            self.assertEqual(payload["status"], "error")
+            self.assertIn("output 根目录", payload["message"])
 
 
 if __name__ == "__main__":

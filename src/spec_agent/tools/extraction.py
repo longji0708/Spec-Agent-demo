@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from typing import Any
@@ -13,6 +14,8 @@ from pydantic import BaseModel
 from ..messages import content_to_text
 from ..timing import phase
 from .schemas import LIST_FIELDS, ProjectSpecification, SpecificationPatch
+
+LOGGER = logging.getLogger(__name__)
 
 _EXTRACTION_PROMPT = """\
 你是需求规格抽取助手。请只从用户本轮输入中抽取新增或修正的信息。
@@ -208,10 +211,16 @@ def extract_specification_update(
                     response = llm.invoke(messages)
                     patch = _coerce_patch(response.content)
                 return merge_specification(current, patch)
-            except Exception:
+            except Exception as exc:
+                LOGGER.warning(
+                    "规格抽取第 %d 次尝试失败：%s",
+                    attempt + 1,
+                    exc,
+                )
                 if attempt < max_retries:
                     time.sleep(min(2**attempt, 4))
                 structured_llm = None
 
         # 抽取失败时不能因一次模型格式抖动中断整轮对话，回退为空 patch。
+        LOGGER.warning("规格抽取在 %d 次尝试后仍失败，已回退为不更新。", max_retries + 1)
         return current

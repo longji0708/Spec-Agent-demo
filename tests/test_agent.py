@@ -1,6 +1,6 @@
 import unittest
 
-from src.agent import create_agent
+from spec_agent.agent import create_agent
 
 
 class CreateAgentTest(unittest.TestCase):
