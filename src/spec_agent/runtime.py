@@ -176,6 +176,7 @@ def create_agent(
 
     graph = build_agent_graph(
         model=model,
+        force_text_model=chat_llm,
         summary_model=utility_llm,
         tools=tools,
         default_user_role=resolved_user_role,

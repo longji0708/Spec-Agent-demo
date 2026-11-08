@@ -8,15 +8,12 @@
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-1C3C3C?style=flat)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat)
 
-## 项目定位
+## 项目引言
 
-这是一个面向简历展示的智能体项目，重点演示以下工程能力：
+在 AI 辅助开发的时代，手写编码的工作量大幅缩减，项目瓶颈不再是敲代码，而是**把模糊想法转化为严谨、无歧义的项目规格**。AI 能快速产出代码，但天然无法读懂开发者脑中的隐含需求，极易出现需求跑偏、实现不符合预期的问题。
 
-- 使用 LangGraph 显式编排 `Agent` 与 `ToolNode`，而不是把核心逻辑藏在黑盒框架里。
-- 通过 OpenAI 兼容接口解耦模型供应商，可切换到 DeepSeek、OpenAI、Azure 或其他兼容服务。
-- 使用 Pydantic 维护结构化规格状态，并用 Jinja2 和 `python-docx` 生成多格式交付物。
-- 实现短期记忆、token 预算、后台摘要、工具异常降级、安全输出路径等生产级细节。
-- 支持无 API Key 的本地 Demo 模式，方便面试官或协作者直接跑通完整流程。
+Spec Agent 是对话式规格定义智能体，作为整套 AI 开发工作流的首个核心模块。它承接开发者零散、抽象的想法，通过交互式对话，梳理目标、功能边界、约束条件、输入输出规范，输出标准化项目 spec 文档。
+spec 是项目的灵魂，后续代码生成、校验、重构环节全部以此为唯一基准。spec Agent 解决 “需求说不清” 的痛点，为后续创造、检查、清理的闭环开发流程筑牢根基，让 AI 编程从即兴生成，变成可管控、可验收的工程化项目交付。
 
 ## 它能做什么
 
@@ -34,26 +31,68 @@
 
 当必填字段完整且没有关键冲突后，可以导出最终规格定义文档。
 
+## 快速开始
+
+### 环境要求
+
+- Python 3.10+
+
+### 1. 配置环境变量
+
+Linux / macOS：
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+编辑 `.env`，至少填入 `LLM_API_KEY`、 `LLM_MODEL` 和 `LLM_BASE_URL`。
+
+### 2. 安装
+
+```bash
+python -m pip install -e .
+```
+
+Windows PowerShell 使用相同命令。`requirements.txt` 仅保留 editable 安装入口，真正的依赖来源是 `pyproject.toml`。
+
+### 3. 启动交互式对话
+
+```bash
+spec-agent
+```
+
+也可以使用模块方式启动：
+
+```bash
+python -m spec_agent
+```
+
+输入 `exit`、`quit` 或 `退出` 可以结束程序。
+
+## 输出目录
+
+默认输出目录：
+
+```text
+output/
+└── default/
+    ├── specification.md
+    ├── specification.html
+    └── specification.docx
+```
+
+同一个 `output` 根目录下，不同 `project_id` 会使用独立子目录，避免互相覆盖。
+
 ## 架构图
 
 ![Spec Agent 系统架构图](images/architecture.png)
 
-### 核心调用链
-
-```text
-CLI / python -m spec_agent
-        └── AgentRuntime
-                └── LangGraph StateGraph
-                        ├── Agent Node
-                        │       └── ChatOpenAI（对话模型）
-                        ├── ToolNode
-                        │       ├── extract_specification
-                        │       ├── check_missing_fields
-                        │       ├── detect_specification_conflicts
-                        │       └── render_specification_document
-                        ├── MemorySaver（短期记忆）
-                        └── SpecificationStore（内存或 JSON 持久化）
-```
 
 ## 核心流程
 
@@ -61,6 +100,10 @@ CLI / python -m spec_agent
 
 多轮对话会形成一个闭环：用户补充信息 → Agent 决定是否需要调用工具 → ToolNode
 更新结构化规格 → 返回缺失项或冲突 → 继续追问，直到规格达到可交付状态。
+
+## 使用预览
+
+![Spec Agent 使用预览](images/cli-demo.png)
 
 ## 输出预览
 
@@ -81,12 +124,12 @@ CLI / python -m spec_agent
 
 ### 2. 模型供应商解耦
 
-使用 `ChatOpenAI` 访问 OpenAI 兼容接口，默认模型为 `gpt-4o-mini`。切换 DeepSeek 只需修改 `.env`：
+使用 `ChatOpenAI` 访问 OpenAI 兼容接口,切换模型只需修改 `.env`：
 
 ```dotenv
-LLM_API_KEY=sk-your-deepseek-api-key
-LLM_MODEL=deepseek-chat
-LLM_BASE_URL=https://api.deepseek.com
+LLM_API_KEY=sk-your-api-key
+LLM_MODEL=your-llm-model
+LLM_BASE_URL=your-llm-base-url
 ```
 
 对话模型与 utility 模型可以分开配置，抽取和摘要任务默认使用更低温度，便于提高结构化输出稳定性。
@@ -136,74 +179,6 @@ output/default/specification.docx
 spec-agent --storage output/my-project.json --project my-project
 ```
 
-## 快速开始
-
-### 环境要求
-
-- Python 3.10+
-
-### 1. 配置环境变量
-
-Linux / macOS：
-
-```bash
-cp .env.example .env
-```
-
-Windows PowerShell：
-
-```powershell
-Copy-Item .env.example .env
-```
-
-编辑 `.env`，至少填入 `LLM_API_KEY`。使用 DeepSeek 时额外设置 `LLM_MODEL` 和 `LLM_BASE_URL`。
-
-### 2. 安装
-
-```bash
-python -m pip install -e .
-```
-
-Windows PowerShell 使用相同命令。`requirements.txt` 仅保留 editable 安装入口，真正的依赖来源是 `pyproject.toml`。
-
-### 3. 启动交互式对话
-
-```bash
-spec-agent
-```
-
-也可以使用模块方式启动：
-
-```bash
-python -m spec_agent
-```
-
-输入 `exit`、`quit` 或 `退出` 可以结束程序。
-
-## 无需 API Key 的演示模式
-
-Demo 模式使用本地 Fake LLM，可以快速验证完整 LangGraph 工具流程：
-
-```powershell
-$env:PYTHONIOENCODING = "utf-8"
-python -X utf8 -m spec_agent --demo --prompt "我想做一个面向产品经理的规格定义工具，支持移动端和离线使用"
-```
-
-示例输出：
-
-```text
-演示模式已启动，不需要真实 API Key。
-输入 exit、quit 或“退出”可以结束对话。
-
-AI：我已经记录下这个示例项目，可以继续补充目标用户和功能需求。
-```
-
-正式环境单次调用：
-
-```bash
-spec-agent --prompt "我要做一个面向产品经理的规格定义工具"
-```
-
 ## CLI 参数
 
 | 参数 | 说明 |
@@ -222,19 +197,7 @@ spec-agent --prompt "我要做一个面向产品经理的规格定义工具"
 | `detect_specification_conflicts` | 检测规格内部矛盾 | 是否存在冲突、冲突详情、澄清建议 |
 | `render_specification_document` | 导出最终文档 | 渲染结果、格式、文件路径，或 `blocked` |
 
-## 输出目录
 
-默认输出目录：
-
-```text
-output/
-└── default/
-    ├── specification.md
-    ├── specification.html
-    └── specification.docx
-```
-
-同一个 `output` 根目录下，不同 `project_id` 会使用独立子目录，避免互相覆盖。
 
 ## 环境变量
 
@@ -242,9 +205,9 @@ output/
 
 | 变量名 | 必填 | 说明 |
 | --- | --- | --- |
-| `LLM_API_KEY` | 是 | OpenAI 兼容接口的 API Key |
-| `LLM_MODEL` | 否 | 对话模型名称，默认 `gpt-4o-mini` |
-| `LLM_BASE_URL` | 否 | OpenAI 兼容接口地址 |
+| `LLM_API_KEY` | 是 |  API Key |
+| `LLM_MODEL` | 是 | 对话模型名称 |
+| `LLM_BASE_URL` | 是 | OpenAI 兼容接口地址 |
 | `LLM_UTILITY_MODEL` | 否 | 抽取/摘要工具使用的模型；为空时复用 `LLM_MODEL` |
 | `LLM_CONTEXT_WINDOW` | 否 | 用于自动计算历史窗口的上下文窗口大小，默认 `65536` |
 | `SPEC_AGENT_USER_ROLE` | 否 | 用户身份提示词，默认 `项目开发人员` |
@@ -256,7 +219,7 @@ output/
 | `LANGSMITH_API_KEY` | 否 | LangSmith API Key |
 | `LANGSMITH_PROJECT` | 否 | LangSmith 项目名称 |
 
-温度、超时、重试等参数请参考 `.env.example`。旧版 `DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`DEEPSEEK_BASE_URL` 以及部分 `SPEC_AGENT_*_LLM_*` 变量仍会兼容，但建议迁移到上表中的新名称。
+温度、超时、重试等参数请参考 `.env.example`。
 
 ## 项目结构
 
@@ -339,21 +302,6 @@ CI 会使用 Python 3.10 和 3.11 运行 `ruff`、`mypy` 与 pytest，并要求�
 2. 在 `tools/registry.py` 的 `build_specification_toolkit()` 中注册为 LangChain 工具；
 3. 在 `runtime.py` 中完成依赖注入；
 4. 如有新的结构化字段，同步更新 `tools/schemas.py` 和渲染模板。
-
-## 图片与截图说明
-
-仓库图片统一放在 [`images/`](images/) 中。目前已经生成的展示图：
-
-- `images/architecture.png`：中文系统架构图；
-- `images/workflow.png`：从想法到文档的核心流程闭环；
-- `images/output-preview.png`：规格定义文档的输出预览示例。
-
-建议继续补充以下真实截图，具体命名和内容要求见 [`images/README.md`](images/README.md)：
-
-- CLI 交互或 Demo 模式截图；
-- LangSmith 链路追踪截图；
-- 真实会话生成的最终 Markdown/HTML/Word 文档截图；
-- 测试或 CI 运行结果截图。
 
 ## Roadmap
 

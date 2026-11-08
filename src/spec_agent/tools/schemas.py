@@ -2,9 +2,21 @@
 
 from __future__ import annotations
 
+import json
 from typing import get_origin
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+_LIST_FIELD_NAMES = (
+    "target_users",
+    "functional_requirements",
+    "non_functional_requirements",
+    "constraints",
+    "deliverables",
+    "validation_specs",
+    "tech_stack",
+    "risks",
+)
 
 
 class ProjectSpecification(BaseModel):
@@ -47,26 +59,26 @@ class SpecificationPatch(BaseModel):
     """
 
     project_name: str | None = Field(default=None, description="项目名称")
-    target_users: list[str] | None = Field(
+    target_users: list[str] | str | None = Field(
         default=None, description="目标用户或用户画像"
     )
-    functional_requirements: list[str] | None = Field(
+    functional_requirements: list[str] | str | None = Field(
         default=None, description="功能需求列表"
     )
-    non_functional_requirements: list[str] | None = Field(
+    non_functional_requirements: list[str] | str | None = Field(
         default=None, description="非功能需求列表"
     )
-    constraints: list[str] | None = Field(
+    constraints: list[str] | str | None = Field(
         default=None, description="约束条件列表"
     )
-    deliverables: list[str] | None = Field(
+    deliverables: list[str] | str | None = Field(
         default=None, description="交付物列表"
     )
-    validation_specs: list[str] | None = Field(
+    validation_specs: list[str] | str | None = Field(
         default=None, description="验证规格列表"
     )
-    tech_stack: list[str] | None = Field(default=None, description="技术栈列表")
-    risks: list[str] | None = Field(default=None, description="风险列表")
+    tech_stack: list[str] | str | None = Field(default=None, description="技术栈列表")
+    risks: list[str] | str | None = Field(default=None, description="风险列表")
     remove_items: dict[str, list[str]] | None = Field(
         default=None,
         description=(
@@ -81,6 +93,17 @@ class SpecificationPatch(BaseModel):
             "等覆盖性修改时使用，值必须是修改后希望保留的完整列表。"
         ),
     )
+
+    @field_validator(*_LIST_FIELD_NAMES, mode="before")
+    @classmethod
+    def _coerce_list_field(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return [value]
+        return parsed if isinstance(parsed, list) else [parsed]
 
 
 LIST_FIELDS: frozenset[str] = frozenset(

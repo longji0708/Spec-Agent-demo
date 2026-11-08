@@ -34,6 +34,8 @@ def build_system_prompt(
         推荐工作流：
         1. 只有用户提供新的需求信息时才调用一次 extract_specification；
            对于“好的、对、嗯”等确认语，不要调用工具，直接简短回应。
+           extract_specification 每轮用户输入最多调用一次；调用后必须用自然语言
+           回复用户，不得重复调用。
         2. 同一轮不要重复调用 extract_specification，也不要连续调用 check_missing_fields
            或 detect_specification_conflicts；extract_specification 已经返回 missing 和
            conflicts，直接据此追问。

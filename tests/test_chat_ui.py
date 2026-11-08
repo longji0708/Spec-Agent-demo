@@ -1,6 +1,6 @@
 import unittest
 
-from langchain_core.messages import AIMessageChunk, HumanMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
 from spec_agent.chat_ui import (
     astream_agent_replies,
@@ -26,6 +26,21 @@ class StreamAgentRepliesTest(unittest.TestCase):
         )
 
         self.assertEqual(chunks, ["你", "好"])
+
+    def test_accepts_complete_ai_message(self) -> None:
+        class AimessageAgent:
+            def stream(self, input, config, stream_mode):
+                yield AIMessage(content="完整回复"), {"langgraph_node": "agent"}
+
+        chunks = list(
+            stream_agent_replies(
+                AimessageAgent(),
+                HumanMessage(content="你好"),
+                {},
+            )
+        )
+
+        self.assertEqual(chunks, ["完整回复"])
 
 
 class AsyncStreamAgentRepliesTest(unittest.IsolatedAsyncioTestCase):

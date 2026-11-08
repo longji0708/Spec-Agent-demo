@@ -52,6 +52,15 @@ class SpecificationMergeTest(unittest.TestCase):
         self.assertEqual(merged.functional_requirements, ["登录", "导出报告"])
         self.assertEqual(merged.tech_stack, ["Python"])
 
+    def test_list_fields_accept_json_strings_from_models(self) -> None:
+        patch = SpecificationPatch(
+            functional_requirements='["支持增删改查"]',
+            tech_stack="Python",
+        )
+
+        self.assertEqual(patch.functional_requirements, ["支持增删改查"])
+        self.assertEqual(patch.tech_stack, ["Python"])
+
     def test_merge_removes_and_replaces_items(self) -> None:
         current = ProjectSpecification(
             functional_requirements=["登录", "个人中心"],

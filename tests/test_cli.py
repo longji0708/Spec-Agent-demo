@@ -29,7 +29,8 @@ class CliEntryPointTest(unittest.TestCase):
             output = stdout.getvalue()
             self.assertTrue(storage_path.exists())
             self.assertTrue((Path(tmp_dir) / "demo" / "specification.md").exists())
-            self.assertIn("演示", output)
+            self.assertIn("我已经记录下这个示例项目", output)
+            self.assertNotIn("没有收到文本回复", output)
 
     def test_invalid_storage_file_raises_friendly_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

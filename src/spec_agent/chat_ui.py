@@ -8,7 +8,7 @@ import time
 from collections.abc import AsyncIterator, Iterable
 from typing import Any
 
-from langchain_core.messages import AIMessageChunk
+from langchain_core.messages import AIMessage, AIMessageChunk
 
 from .messages import content_to_text
 from .timing import log_phase, timing_enabled
@@ -77,7 +77,7 @@ def stream_agent_replies(
     ):
         if metadata.get("langgraph_node") != "agent":
             continue
-        if not isinstance(chunk, AIMessageChunk):
+        if not isinstance(chunk, (AIMessage, AIMessageChunk)):
             continue
 
         text = content_to_text(chunk.content)
